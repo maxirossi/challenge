@@ -22,3 +22,61 @@ model User {
 
   @@map("users")
 }
+
+model Driver {
+  id        Int      @id @default(autoincrement())
+  uuid      String   @unique @default(uuid())
+  name      String
+  lastName  String
+  email     String   @unique
+  phone     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  cars      Car[]
+  trips     Trip[]
+
+  @@map("drivers")
+}
+
+model Car {
+  id         Int      @id @default(autoincrement())
+  uuid       String   @unique @default(uuid())
+  plate      String   @unique
+  model      String
+  brand      String
+  year       Int
+  driverId   Int
+  createdAt  DateTime @default(now())
+  deletedAt  DateTime?
+
+  driver     Driver   @relation(fields: [driverId], references: [id])
+
+  @@map("cars")
+}
+
+model Trip {
+  id          Int        @id @default(autoincrement())
+  uuid        String     @unique @default(uuid())
+  origin      String
+  destination String
+  status      TripStatus
+  fare        Float
+  driverId    Int
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  completedAt DateTime?
+  cancelledAt DateTime?
+
+  driver      Driver     @relation(fields: [driverId], references: [id])
+
+  @@map("trips")
+}
+
+enum TripStatus {
+  REQUESTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}

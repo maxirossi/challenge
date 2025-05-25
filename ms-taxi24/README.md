@@ -143,3 +143,17 @@ curl -X POST http://localhost:3000/v1/users/authenticate -H "Content-Type: appli
 ## Ms-Taxi23 logs
 
 docker logs -f ms-taxi24
+
+## View database data
+
+docker exec -it postgres_mate psql -U postgres -d mate
+\dt
+SELECT * FROM drivers;
+
+ Schema |        Name        | Type  |  Owner   
+--------+--------------------+-------+----------
+ public | _prisma_migrations | table | postgres
+ public | cars               | table | postgres
+ public | drivers            | table | postgres
+ public | trips              | table | postgres
+ public | users              | table | postgres

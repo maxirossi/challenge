@@ -12,6 +12,9 @@ echo "🔄 Ejecutando migraciones dentro del contenedor ms-taxi24..."
 docker exec -it ms-taxi24 npx prisma migrate dev --name init --skip-seed || echo "⚠️ Las migraciones fallaron o ya estaban aplicadas"
 echo "✅ Migraciones ejecutadas."
 
+echo "🔁 Generando cliente Prisma dentro del contenedor..."
+docker exec -it ms-taxi24 npx prisma generate || echo "⚠️ Prisma client ya generado o falló"
+
 echo "🌱 Ejecutando seed.ts dentro del contenedor..."
 set +e
 docker exec -it ms-taxi24 npx ts-node prisma/seed.ts
