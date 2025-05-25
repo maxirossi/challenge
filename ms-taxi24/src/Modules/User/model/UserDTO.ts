@@ -1,4 +1,4 @@
-// src/Modules/User/model/UserDTO.ts
+
 export interface UserDTO {
     uuid: string;
     name: string;

@@ -1,5 +1,3 @@
-// src/Modules/User/model/Mappers/UserMapper.ts
-
 import { User } from '@prisma/client';
 import { UserDTO } from '../UserDTO';
 
