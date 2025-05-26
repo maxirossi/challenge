@@ -2,7 +2,6 @@ import { PrismaClient } from '@prisma/client';
 
 import { UserInterface } from '@User/model/interfaces/UserInterface';
 import Logger from '@Shared/domain/Logger';
-import WinstonLogger from '@Shared/infrastructure/WinstoneLogger';
 import { InternalResponse } from '@Shared/dto/InternalResponse';
 import { GenericResponse } from '@Shared/dto/GenericResponse';
 import { UserDTO } from '@Modules/User/model/UserDTO';
@@ -10,14 +9,11 @@ import { toUserDTO } from '@User/model/Mappers/UserMapper';
 
 export class UserRepository {
   
-  private prisma: PrismaClient;
-  private readonly logger: Logger;
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly logger: Logger
+  ) {}
 
-  constructor(prisma: PrismaClient, logger: Logger) {
-    this.prisma = prisma;
-    this.logger = logger;
-  }
-  
   async create(userData: UserInterface): Promise<InternalResponse> {
     try {
       const { id, ...createData } = userData; 
