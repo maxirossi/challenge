@@ -22,13 +22,17 @@ import { CaseUseException } from '@Shared/domain/exceptions/CaseUseException';
 import { UserCreatedEvent } from '@Modules/User/model/events/UserCreatedEvent';
 import { DomainEventDispatcher } from '@Shared/DomainEventDispatcher';
 
+import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 
 export class UsersService {
   constructor(
-    private readonly userRepository: UserRepository = new UserRepository(),
+    private readonly userRepository: UserRepository = new UserRepository(
+      new PrismaClient(),
+      new WinstonLogger()
+    ),
     private readonly logger: Logger = new WinstonLogger()
-  ) { }
+  ) {}
 
   async create(
     uuid: string,

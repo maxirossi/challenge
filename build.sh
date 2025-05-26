@@ -16,11 +16,5 @@ fi
 
 cd ..
 
-# (Optional) Comment if you don't want clear volumes
-#echo "🧹 Cleaning Docker environment..."
-#docker-compose down --volumes --remove-orphans
-#docker system prune -af
-#docker volume prune -f
-
 echo "🚀 Building and starting containers..."
 docker-compose up --build

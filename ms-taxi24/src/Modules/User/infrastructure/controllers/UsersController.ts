@@ -16,13 +16,13 @@ import WinstonLogger from '@Shared/infrastructure/WinstoneLogger';
 import { GeneralConstants } from '@Shared/constants';
 import { ControllerError } from '@Shared/domain/exceptions/ControllerException';
 import { UserRepository } from '../repositories/UserRepository';
-import bcrypt from 'bcrypt';
-
+import bcrypt from 'bcrypt'; //
+import { PrismaClient } from '@prisma/client';
 export class UsersController {
 
   constructor(
     private readonly userService: UsersService = new UsersService(
-      new UserRepository(),
+      new UserRepository(new PrismaClient(), new WinstonLogger()), // <- dependencias inyectadas
       new WinstonLogger()
     ),
     private readonly logger: Logger = new WinstonLogger()

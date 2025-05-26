@@ -9,14 +9,15 @@ import { UserDTO } from '@Modules/User/model/UserDTO';
 import { toUserDTO } from '@User/model/Mappers/UserMapper';
 
 export class UserRepository {
+  
   private prisma: PrismaClient;
   private readonly logger: Logger;
 
-  constructor() {
-    this.prisma = new PrismaClient();
-    this.logger = new WinstonLogger();
+  constructor(prisma: PrismaClient, logger: Logger) {
+    this.prisma = prisma;
+    this.logger = logger;
   }
-
+  
   async create(userData: UserInterface): Promise<InternalResponse> {
     try {
       const { id, ...createData } = userData; 

@@ -5,7 +5,6 @@ import WinstonLogger from '@Shared/infrastructure/WinstoneLogger';
 
 const router = Router();
 
-// Inyección manual de dependencias
 const userService = new UsersService();
 const logger = new WinstonLogger();
 const usersController = new UsersController(userService, logger);
