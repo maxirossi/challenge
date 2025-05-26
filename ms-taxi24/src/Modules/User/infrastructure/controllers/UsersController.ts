@@ -22,7 +22,7 @@ export class UsersController {
 
   constructor(
     private readonly userService: UsersService = new UsersService(
-      new UserRepository(new PrismaClient(), new WinstonLogger()), // <- dependencias inyectadas
+      new UserRepository(new PrismaClient(), new WinstonLogger()), 
       new WinstonLogger()
     ),
     private readonly logger: Logger = new WinstonLogger()
