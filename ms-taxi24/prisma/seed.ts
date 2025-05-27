@@ -35,6 +35,7 @@ async function main() {
       lastName: 'Pérez',
       email: 'driver@example.com',
       phone: '123456789',
+      active: true
     },
   });
 
