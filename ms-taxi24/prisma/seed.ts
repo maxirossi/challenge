@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 const prisma = new PrismaClient();
 
 async function main() {
+  // Crear usuario administrador
   const passwordPlain = 'ilovepuppies';
   const passwordMd5 = crypto.createHash('md5').update(passwordPlain).digest('hex');
 
@@ -22,8 +23,9 @@ async function main() {
     },
   });
 
-  console.log('✅ New user created:', newUser.email);
+  console.log('✅ Usuario creado:', newUser.email);
 
+  // Crear conductor
   const newDriver = await prisma.driver.upsert({
     where: { email: 'driver@example.com' },
     update: {},
@@ -36,8 +38,9 @@ async function main() {
     },
   });
 
-  console.log('🚗 New driver created:', newDriver.name);
+  console.log('🚗 Conductor creado:', newDriver.name);
 
+  // Crear autos para el conductor
   const car1 = await prisma.car.create({
     data: {
       uuid: uuidv4(),
@@ -45,7 +48,19 @@ async function main() {
       model: 'Focus',
       brand: 'Ford',
       year: 2018,
+      color: 'Azul',
       driverId: newDriver.id,
+    },
+  });
+
+  await prisma.carPosition.create({
+    data: {
+      uuid: uuidv4(),
+      carId: car1.id,
+      latitude: -34.6037,
+      longitude: -58.3816,
+      isActive: true,
+      isFree: true,
     },
   });
 
@@ -56,12 +71,40 @@ async function main() {
       model: 'Model 3',
       brand: 'Tesla',
       year: 2021,
+      color: 'Negro',
       driverId: newDriver.id,
     },
   });
 
-  console.log('🚘 Cars created:', car1.plate, 'and', car2.plate);
+  await prisma.carPosition.create({
+    data: {
+      uuid: uuidv4(),
+      carId: car2.id,
+      latitude: -34.6157,
+      longitude: -58.4333,
+      isActive: true,
+      isFree: false,
+    },
+  });
 
+  console.log('🚘 Autos y posiciones creados');
+
+  // Crear pasajero
+  const passenger = await prisma.passenger.upsert({
+    where: { email: 'ana@example.com' },
+    update: {},
+    create: {
+      uuid: uuidv4(),
+      name: 'Ana',
+      lastName: 'Martínez',
+      email: 'ana@example.com',
+      phone: '987654321',
+    },
+  });
+
+  console.log('🧍 Pasajero creado:', passenger.name);
+
+  // Crear viajes
   await prisma.trip.createMany({
     data: [
       {
@@ -69,16 +112,19 @@ async function main() {
         origin: 'Centro',
         destination: 'Aeropuerto',
         status: 'COMPLETED',
-        fare: 1200.50,
+        fare: 1200.5,
         driverId: newDriver.id,
+        passengerId: passenger.id,
+        completedAt: new Date(),
       },
       {
         uuid: uuidv4(),
         origin: 'Terminal',
         destination: 'Hotel Plaza',
         status: 'IN_PROGRESS',
-        fare: 800.00,
+        fare: 800.0,
         driverId: newDriver.id,
+        passengerId: passenger.id,
       },
       {
         uuid: uuidv4(),
@@ -87,16 +133,18 @@ async function main() {
         status: 'CANCELLED',
         fare: 0.0,
         driverId: newDriver.id,
+        passengerId: passenger.id,
+        cancelledAt: new Date(),
       },
     ],
   });
 
-  console.log('🛺 Trips seeded.');
+  console.log('🛺 Viajes creados');
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Seeder error:', e);
+    console.error('❌ Error en seed:', e);
     process.exit(1);
   })
   .finally(async () => {

@@ -1,6 +1,6 @@
 import { PassengerRepository } from '@Modules/Passenger/infrastructure/repositories/PassengerRepository';
 import { GenericResponse } from '@Shared/dto/GenericResponse';
-import { PassengerDTO } from '@Modules/Passenger/model/PassengerDTO';
+import { PassengerDTO } from '@Modules/Passenger/model/PassagerDTO';
 import Logger from '@Shared/domain/Logger';
 import WinstonLogger from '@Shared/infrastructure/WinstoneLogger';
 import { CaseUseException } from '@Shared/domain/exceptions/CaseUseException';

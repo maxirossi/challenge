@@ -1,8 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import Logger from '@Shared/domain/Logger';
 import { GenericResponse } from '@Shared/dto/GenericResponse';
-import { PassengerDTO } from '@Modules/Passenger/model/PassengerDTO';
-import { toPassengerDTO } from '@Modules/Passenger/model/Mappers/PassengerMapper';
+import { PassengerDTO } from '@Modules/Passenger/model/PassagerDTO';
+import { toPassengerDTO } from '@Modules/Passenger/model/Mappers/PassagerMapper';
 import WinstonLogger from '@Shared/infrastructure/WinstoneLogger';
 
 export class PassengerRepository {

@@ -108,6 +108,21 @@ curl -X POST http://localhost:3000/v1/users \
 curl -X GET http://localhost:3000/v1/users
 ```
 
+## Get all passengers CURL
+
+```bash
+curl -X GET http://localhost:3000/v1/passengers
+```
+
+## Get all passengers by Id
+
+```bash
+curl -X GET http://localhost:3000/v1/passengers/da7bf7b1-80b3-49a4-9aff-a546fdc72524
+```
+
+
+
+
 ## Get user by UUID
 
 ```bash
@@ -157,3 +172,10 @@ SELECT * FROM drivers;
  public | drivers            | table | postgres
  public | trips              | table | postgres
  public | users              | table | postgres
+
+
+sudo mkdir -p /sys/fs/cgroup
+sudo umount /sys/fs/cgroup 2>/dev/null
+sudo mount -t cgroup cgroup /sys/fs/cgroup
+sudo dockerd
+

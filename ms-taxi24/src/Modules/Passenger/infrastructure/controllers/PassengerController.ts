@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PassengersService } from '@Modules/Passenger/application/PassengersService';
+import { PassengersService } from '@Modules/Passenger/application/services/PassengersService';
 import Logger from '@Shared/domain/Logger';
 import WinstonLogger from '@Shared/infrastructure/WinstoneLogger';
 import { HttpResponseCodes } from '@Shared/HttpResponseCodes';
@@ -14,7 +14,7 @@ export class PassengerController {
       new WinstonLogger()
     ),
     private readonly logger: Logger = new WinstonLogger()
-  ) {}
+  ) { }
 
   private handleError(error: unknown, res: Response): void {
     this.logger.error(error);
@@ -41,7 +41,7 @@ export class PassengerController {
 
   async getPassengerById(req: Request, res: Response): Promise<void> {
     try {
-      const uuid = req.params.passengerId;
+      const uuid = req.params.userId;
       const response = await this.passengerService.getByUuid(uuid);
 
       if (!response.success) throw new ControllerError('Error getting passenger by uuid', HttpResponseCodes.BAD_REQUEST);

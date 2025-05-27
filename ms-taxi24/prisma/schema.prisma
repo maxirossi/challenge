@@ -56,6 +56,39 @@ model Passenger {
   @@map("passengers")
 }
 
+model Car {
+  id         Int      @id @default(autoincrement())
+  uuid       String   @unique @default(uuid())
+  plate      String   @unique
+  brand      String
+  model      String
+  year       Int
+  color      String
+  driverId   Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  driver     Driver   @relation(fields: [driverId], references: [id])
+  position   CarPosition?
+
+  @@map("cars")
+}
+
+model CarPosition {
+  id         Int      @id @default(autoincrement())
+  uuid       String   @unique @default(uuid())
+  carId      Int      @unique
+  latitude   Float
+  longitude  Float
+  isActive   Boolean  @default(false)
+  isFree     Boolean  @default(true)
+  updatedAt  DateTime @updatedAt
+
+  car        Car      @relation(fields: [carId], references: [id])
+
+  @@map("car_positions")
+}
+
 model Trip {
   id           Int         @id @default(autoincrement())
   uuid         String      @unique @default(uuid())
@@ -75,23 +108,6 @@ model Trip {
   invoice      Invoice?
 
   @@map("trips")
-}
-
-model Car {
-  id         Int      @id @default(autoincrement())
-  uuid       String   @unique @default(uuid())
-  driverId   Int
-  plate      String   @unique
-  brand      String
-  model      String
-  year       Int
-  color      String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  driver     Driver   @relation(fields: [driverId], references: [id])
-
-  @@map("cars")
 }
 
 model Invoice {
