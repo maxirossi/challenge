@@ -120,9 +120,6 @@ curl -X GET http://localhost:3000/v1/passengers
 curl -X GET http://localhost:3000/v1/passengers/da7bf7b1-80b3-49a4-9aff-a546fdc72524
 ```
 
-
-
-
 ## Get user by UUID
 
 ```bash

@@ -30,10 +30,11 @@ model Driver {
   lastName   String
   email      String   @unique
   phone      String
+  active     Boolean
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   deletedAt  DateTime?
-
+  
   cars       Car[]
   trips      Trip[]
 

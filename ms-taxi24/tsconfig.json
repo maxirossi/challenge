@@ -13,6 +13,12 @@
       ],
       "@Passenger/*": [
         "src/Modules/Passenger/*"
+      ],
+      "@Driver/*": [
+        "src/Modules/Driver/*"
+      ],
+      "@Trip/*": [
+        "src/Modules/Trip/*"
       ]
     },
     "target": "es6",
