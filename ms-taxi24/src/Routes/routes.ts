@@ -1,29 +1,30 @@
 import { Router, Request, Response } from 'express';
 import WinstonLogger from '@Shared/infrastructure/WinstoneLogger';
 
-import { UsersController } from '@User/infrastructure/controllers/UsersController';
-import { UsersService } from '@User/application/services/UsersService';
-import { PassengerController} from '@Modules/Passenger/infrastructure/controllers/PassengerController';
-import { PassengersService } from '@Modules/Passenger/application/services/PassengersService';
-import { DriversController } from '@Modules/Driver/infrastructure/controllers/DriversController';
-import { DriversService } from '@Modules/Driver/application/services/DriverService';
-import { TripsController } from '@Modules/Trip/infrastructure/controllers/TripsController';
-import { TripsService } from '@Modules/Trip/application/services/TripsService';
+import { UserController } from '@Modules/Users/infrastructure/controllers/UserController';
+import { UserService } from '@Modules/Users/application/services/UserService';
+import { PassengerController } from '@Modules/Passengers/infrastructure/controllers/PassengerController';
+import { PassengerService } from '@Modules/Passengers/application/services/PassengerService';
+import { DriverController } from '@Modules/Drivers/infrastructure/controllers/DriverController';
+import { DriversService } from '@Modules/Drivers/application/services/DriverService';
+import { TripController } from '@Modules/Trips/infrastructure/controllers/TripController';
+import { TripService } from '@Modules/Trips/application/services/TripService';
+import { UserRepository } from '@Modules/Users/infrastructure/repositories/UserRepository';
+
 
 const router = Router();
 const logger = new WinstonLogger();
 
-const userService = new UsersService();
-const usersController = new UsersController(userService, logger);
+const userService = new UserService();
+const usersController = new UserController(userService, logger);
 
-const passengerService = new PassengersService();
-const passengerController = new PassengerController(passengerService, logger);
+const passengerService = new PassengerService();
+const passengerController = new PassengerController(passengerService);
 
 const driverService = new DriversService();
-const driversController = new DriversController(driverService, logger);
-const tripService = new TripsService();
-const tripsController = new TripsController(tripService, logger);
-
+const driverController = new DriverController(driverService, logger);
+const tripService = new TripService();
+const tripController = new TripController(tripService, logger);
 /* Health Check */
 router.get('/health', (_req: Request, res: Response) => {
   res.status(200).send({
@@ -48,30 +49,30 @@ router.get(`/${apiVersion}/passengers/:userId`, (req, res) => passengerControlle
 
 /* Drivers Routes */
 router.get(`/${apiVersion}/drivers`, (req, res) =>
-  driversController.getAllDrivers(req, res)
+  driverController.getAllDrivers(req, res)
 );
 router.get(`/${apiVersion}/drivers/active`, (req, res) =>
-  driversController.getAllDriversActive(req, res)
+  driverController.getAllDriversActive(req, res)
 );
 router.get(`/${apiVersion}/drivers/:driverId`, (req, res) =>
-  driversController.getDriverById(req, res)
+  driverController.getDriverById(req, res)
 );
 
 /* Trips Routes */
 router.post(`/${apiVersion}/trips`, (req, res) =>
-  tripsController.createTrip(req, res)
+  tripController.createTrip(req, res)
 );
 router.get(`/${apiVersion}/trips`, (req, res) =>
-  tripsController.getAllTrips(req, res)
+  tripController.getAllTrips(req, res)
 );
 router.get(`/${apiVersion}/trips/:tripId`, (req, res) =>
-  tripsController.getTripById(req, res)
+  tripController.getTripById(req, res)
 );
 router.put(`/${apiVersion}/trips/:tripId`, (req, res) =>
-  tripsController.updateTrip(req, res)
+  tripController.updateTrip(req, res)
 );
 router.delete(`/${apiVersion}/trips/:tripId`, (req, res) =>
-  tripsController.deleteTrip(req, res)
+  tripController.deleteTrip(req, res)
 );
 
 

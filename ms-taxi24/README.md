@@ -60,7 +60,6 @@ http://localhost:3000/api-docs/
 - Nodemon
 - DockerFile and docker-compose
 - Postgress as relational DB 
-- Users module 
 
 ## Requirements
 
