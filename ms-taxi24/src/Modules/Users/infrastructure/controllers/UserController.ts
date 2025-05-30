@@ -9,36 +9,42 @@ import { Active } from '@Shared/domain/value-object/User/Active';
 import { Uuid } from '@Shared/domain/value-object/Uuid';
 import { CreatedAt } from '@Shared/domain/value-object/CreatedAt';
 import { Page } from '@Shared/domain/value-object/Page';
+import { Phone } from '@Shared/domain/value-object/User/Phone';
 import { HttpResponseCodes } from '@Shared/HttpResponseCodes';
 import Logger from '@Shared/domain/Logger';
 import WinstonLogger from '@Shared/infrastructure/WinstoneLogger';
 import { GeneralConstants } from '@Shared/constants';
 import { ControllerError } from '@Shared/domain/exceptions/ControllerException';
 import { UserRepository } from '../repositories/UserRepository';
-import bcrypt from 'bcrypt'; //
+import bcrypt from 'bcrypt';
 import { PrismaClient } from '@prisma/client';
 import { UserService } from '@Modules/Users/application/services/UserService';
 
-
 export class UserController {
-
   constructor(
     private readonly userService: UserService = new UserService(
       new UserRepository(new PrismaClient(), new WinstonLogger()), 
       new WinstonLogger()
     ),
     private readonly logger: Logger = new WinstonLogger()
-  ) {}
+  ) {
+    this.handleError = this.handleError.bind(this);
+  }
 
-  private handleError(error: unknown, res: Response): void {
+  private handleError = (error: unknown, res: Response): void => {
     this.logger.error(error);
     const status = error instanceof ControllerError
       ? HttpResponseCodes.BAD_REQUEST
       : HttpResponseCodes.INTERNAL_SERVER_ERROR;
-    res.status(status).json({ success: false });
+    
+    const message = error instanceof Error ? error.message : 'An unexpected error occurred';
+    res.status(status).json({ 
+      success: false,
+      message 
+    });
   }
 
-  async createUser(req: Request, res: Response): Promise<void> {
+  createUser = async (req: Request, res: Response): Promise<void> => {
     try {
       const uuid = new Uuid(uuidv4());
       const name = new Name(req.body.name);
@@ -48,6 +54,7 @@ export class UserController {
       const password = new UserPassword(req.body.password);
       const active = new Active(req.body.active);
       const createdAt = new CreatedAt(new Date());
+      const phone = new Phone(req.body.phone);
       const hashedPassword = await bcrypt.hash(password.value, 10);
 
       const response = await this.userService.create(
@@ -58,10 +65,13 @@ export class UserController {
         userName,
         hashedPassword,
         active,
-        createdAt
+        createdAt,
+        phone.value
       );
 
-      if (!response.success) throw new ControllerError('Error creating new user', HttpResponseCodes.BAD_REQUEST);
+      if (!response.success) {
+        throw new ControllerError(response.message || 'Error creating new user', HttpResponseCodes.BAD_REQUEST);
+      }
 
       res.status(HttpResponseCodes.CREATED).json(response);
     } catch (error) {
@@ -69,11 +79,13 @@ export class UserController {
     }
   }
 
-  async getAllUsers(req: Request, res: Response): Promise<void> {
+  getAllUsers = async (req: Request, res: Response): Promise<void> => {
     try {
       const pageParam = req.query.page;
+      const limitParam = req.query.limit;
       const page = new Page(parseInt(pageParam as string) || 1);
-      const response = await this.userService.getAll(page);
+      const limit = parseInt(limitParam as string) || 10;
+      const response = await this.userService.getAll(page, limit);
 
       if (!response.success) throw new ControllerError('Error getting all users', HttpResponseCodes.BAD_REQUEST);
 
@@ -86,12 +98,12 @@ export class UserController {
     }
   }
 
-  async getUserById(req: Request, res: Response): Promise<void> {
+  getUserById = async (req: Request, res: Response): Promise<void> => {
     try {
-      const uuidParam = req.params.userId;
-      const response = await this.userService.getById(uuidParam);
+      const id = req.params.userId;
+      const response = await this.userService.findById(id);
 
-      if (!response.success) throw new ControllerError('Error getting user by uuid', HttpResponseCodes.BAD_REQUEST);
+      if (!response.success) throw new ControllerError('Error getting user by id', HttpResponseCodes.BAD_REQUEST);
 
       res.status(HttpResponseCodes.OK).json(response);
     } catch (error) {
@@ -99,15 +111,14 @@ export class UserController {
     }
   }
 
-  async updateUser(req: Request, res: Response): Promise<void> {
+  updateUser = async (req: Request, res: Response): Promise<void> => {
     try {
-      const uuidParam = req.params.userId;
+      const id = req.params.userId;
       const name = req.body.name ? new Name(req.body.name).value : undefined;
       const lastName = req.body.lastName ? new LastName(req.body.lastName).value : undefined;
       const password = req.body.password ? new UserPassword(req.body.password).value : undefined;
-      const active = req.body.active !== undefined ? new Active(req.body.active).value : undefined;
 
-      const response = await this.userService.update(uuidParam, { name, lastName, password, active });
+      const response = await this.userService.update(id, { name, lastName, password });
 
       if (!response.success) throw new ControllerError('Error updating user', HttpResponseCodes.BAD_REQUEST);
 
@@ -117,10 +128,10 @@ export class UserController {
     }
   }
 
-  async deleteUser(req: Request, res: Response): Promise<void> {
+  deleteUser = async (req: Request, res: Response): Promise<void> => {
     try {
-      const uuidParam = req.params.userId;
-      const response = await this.userService.delete(uuidParam);
+      const id = req.params.userId;
+      const response = await this.userService.delete(id);
 
       if (!response.success) throw new ControllerError('Error deleting user', HttpResponseCodes.BAD_REQUEST);
 
@@ -130,7 +141,7 @@ export class UserController {
     }
   }
 
-  async authenticateUser(req: Request, res: Response): Promise<void> {
+  authenticateUser = async (req: Request, res: Response): Promise<void> => {
     try {
       const email = new Email(req.body.email);
       const password = req.body.password;

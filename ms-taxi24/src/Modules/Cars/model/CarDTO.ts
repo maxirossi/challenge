@@ -1,14 +1,15 @@
-import { CarPosition } from '../domain/interfaces/CarInterface';
+import { CarInterface } from './interfaces/CarInterface';
+import { DriverDTO } from '@Modules/Drivers/model/DriverDTO';
 
-export interface CarDTO {
+export interface CarDTO extends CarInterface {
   id: string;
+  driverId: string;
   plate: string;
-  model: string;
   brand: string;
+  model: string;
   year: number;
   color: string;
-  driverId: string;
   createdAt: Date;
   updatedAt: Date;
-  position?: CarPosition;
+  driver?: DriverDTO;
 } 

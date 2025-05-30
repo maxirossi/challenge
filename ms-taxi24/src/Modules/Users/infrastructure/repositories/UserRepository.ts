@@ -1,23 +1,40 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClientInterface } from '@Modules/Shared/infrastructure/prisma/interfaces/PrismaClientInterface';
+import { Logger } from '@Modules/Shared/domain/interfaces/Logger';
+import { GenericResponse } from '@Modules/Shared/domain/interfaces/ApiResponse';
 
 import { UserInterface } from '@Modules/Users/model/interfaces/UserInterface';
-import Logger from '@Shared/domain/Logger';
 import { InternalResponse } from '@Shared/dto/InternalResponse';
-import { GenericResponse } from '@Shared/dto/GenericResponse';
+import { BaseRepository } from '@Modules/Shared/domain/interfaces/Repository';
+import { UserMapper } from '@Modules/Users/model/Mappers/UserMapper';
+import WinstonLogger from '@Modules/Shared/infrastructure/WinstoneLogger';
 import { UserDTO } from '@Modules/Users/model/UserDTO';
-import { toUserDTO } from '@Modules/Users/model/Mappers/UserMapper';
+import { User } from '@Modules/Users/model/User';
+import { prisma } from '@Modules/Shared/infrastructure/prisma/client';
 
-export class UserRepository {
-  
+export class UserRepository extends BaseRepository<UserDTO, string> {
   constructor(
-    private readonly prisma: PrismaClient,
-    private readonly logger: Logger
-  ) {}
+    private readonly prisma: PrismaClientInterface = prisma,
+    logger: Logger = new WinstonLogger()
+  ) {
+    super(logger);
+  }
 
   async create(userData: UserInterface): Promise<InternalResponse> {
     try {
-      const { id, ...createData } = userData; 
-      await this.prisma.user.create({ data: createData });
+      const user = new User(userData);
+      await user.setPassword(userData.password);
+      
+      await this.prisma.user.create({
+        data: {
+          name: user.name,
+          lastName: user.lastName,
+          email: user.email,
+          user: userData.user,
+          password: userData.password,
+          phone: user.phone,
+          role: userData.role || 'PASSENGER'
+        }
+      });
       return { success: true, message: 'User created successfully' };
     } catch (error) {
       this.logger.error(error);
@@ -25,87 +42,110 @@ export class UserRepository {
     }
   }
 
-  async getAll(page: number, perPage: number): Promise<GenericResponse<UserDTO[]>> {
+  async getAll(page: number = 1, limit: number = 10): Promise<{ data: UserDTO[]; total: number }> {
     try {
-      const skip = (page - 1) * perPage;
-      const users = await this.prisma.user.findMany({
-        where: { active: true },
-        skip,
-        take: perPage
-      });
-
-      return { success: true, data: users.map(toUserDTO) };
+      const skip = (page - 1) * limit;
+      const [users, total] = await Promise.all([
+        this.prisma.user.findMany({
+          skip,
+          take: limit,
+          orderBy: { createdAt: 'desc' },
+          include: {
+            driver: true,
+            passenger: true
+          }
+        }),
+        this.prisma.user.count()
+      ]);
+      return {
+        data: users.map(user => UserMapper.toDTO(user)),
+        total
+      };
     } catch (error) {
       this.logger.error(error);
-      return { success: false, message: 'Error retrieving users' };
+      throw error;
     }
   }
 
-  async getUserById(uuid: string): Promise<GenericResponse<UserDTO>> {
+  async findById(id: string): Promise<UserDTO | null> {
     try {
       const user = await this.prisma.user.findUnique({
-        where: { uuid, active: true }
+        where: { id },
+        include: {
+          driver: true,
+          passenger: true
+        }
       });
-
-      return user
-        ? { success: true, data: toUserDTO(user) }
-        : { success: false, message: 'User not found' };
+      return user ? UserMapper.toDTO(user) : null;
     } catch (error) {
       this.logger.error(error);
-      return { success: false, message: 'Cannot get user' };
+      return null;
     }
   }
 
-  async update(uuid: string, userData: UserInterface): Promise<InternalResponse> {
+  async findByEmail(email: string): Promise<UserDTO | null> {
     try {
       const user = await this.prisma.user.findUnique({
-        where: { uuid, active: true }
+        where: { email },
+        include: {
+          driver: true,
+          passenger: true
+        }
       });
-
-      if (!user) return { success: false, message: 'User not found' };
-
-      const { id, ...updatedData } = userData;
-      await this.prisma.user.update({
-        where: { uuid },
-        data: updatedData
-      });
-
-      return { success: true, message: 'User updated successfully' };
+      return user ? UserMapper.toDTO(user) : null;
     } catch (error) {
       this.logger.error(error);
-      return { success: false, message: 'Error updating user' };
+      return null;
     }
   }
 
-  async delete(uuid: string): Promise<InternalResponse> {
+  async save(userData: Omit<UserInterface, 'id'>): Promise<UserDTO> {
     try {
-      const user = await this.prisma.user.findUnique({ where: { uuid } });
-
-      if (!user) return { success: false, message: 'User not found' };
-
-      await this.prisma.user.update({
-        where: { uuid },
-        data: { active: false, deletedAt: new Date() }
+      const user = await this.prisma.user.create({
+        data: {
+          name: userData.name,
+          lastName: userData.lastName,
+          email: userData.email,
+          user: userData.user,
+          password: userData.password,
+          phone: userData.phone,
+          role: userData.role || 'PASSENGER',
+        }
       });
-
-      return { success: true, message: 'User deleted' };
+      return UserMapper.toDTO(user);
     } catch (error) {
       this.logger.error(error);
-      return { success: false, message: 'Error deleting user' };
+      throw error;
     }
   }
 
-  async getByEmail(email: string): Promise<GenericResponse<UserInterface>> {
+  async update(id: string, userData: Partial<UserInterface>): Promise<UserDTO> {
     try {
-      const user = await this.prisma.user.findUnique({
-        where: { email, active: true }
+      const user = await this.prisma.user.update({
+        where: { id },
+        data: {
+          name: userData.name,
+          lastName: userData.lastName,
+          email: userData.email,
+          user: userData.user,
+          password: userData.password,
+          phone: userData.phone,
+          role: userData.role,
+        }
       });
-      return user
-        ? { success: true, data: user } 
-        : { success: false, message: 'User not found by email' };
+      return UserMapper.toDTO(user);
     } catch (error) {
       this.logger.error(error);
-      return { success: false, message: 'Cannot get user by email' };
+      throw error;
+    }
+  }
+
+  async delete(id: string): Promise<void> {
+    try {
+      await this.prisma.user.delete({ where: { id } });
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
     }
   }
 }

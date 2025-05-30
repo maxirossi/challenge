@@ -1,90 +1,71 @@
-import { PrismaClient, Prisma } from '@prisma/client';
-import { Car, CarPosition, CarRepository as ICarRepository } from '../../domain/interfaces/CarInterface';
-import Logger from '@Shared/domain/Logger';
-import { CarDTO } from '../../model/CarDTO';
-import { toCar, toCarDTO } from '../../model/Mappers/CarMapper';
+import { PrismaClientInterface } from '@Modules/Shared/infrastructure/prisma/interfaces/PrismaClientInterface';
+import { CarInterface } from '@Modules/Cars/model/interfaces/CarInterface';
+import { Logger } from '@Modules/Shared/domain/interfaces/Logger';
+import { BaseRepository } from '@Modules/Shared/domain/interfaces/Repository';
+import { CarDTO } from '@Modules/Cars/model/CarDTO';
+import { toCarDTO } from '@Modules/Cars/model/Mappers/CarMapper';
+import WinstonLogger from '@Modules/Shared/infrastructure/WinstoneLogger';
 
-export class CarRepository implements ICarRepository {
-  private prisma: PrismaClient;
-
-  constructor(private readonly logger: Logger) {
-    this.prisma = new PrismaClient();
+export class CarRepository extends BaseRepository<CarDTO, string> {
+  constructor(
+    private readonly prisma: PrismaClientInterface,
+    logger: Logger = new WinstonLogger()
+  ) {
+    super(logger);
   }
 
-  async create(carData: Omit<Car, 'id' | 'createdAt' | 'updatedAt' | 'position'>): Promise<Car> {
-    try {
-      const car = await this.prisma.car.create({ 
-        data: {
-          plate: carData.plate,
-          model: carData.model,
-          brand: carData.brand,
-          year: carData.year,
-          color: carData.color,
-          driverId: carData.driverId
-        },
-        include: {
-          position: true
-        }
-      });
-      return toCar(car as unknown as CarDTO);
-    } catch (error) {
-      this.logger.error(error);
-      throw new Error('Error creating car');
-    }
-  }
-
-  async findById(id: string): Promise<Car | null> {
+  async findById(id: string): Promise<CarDTO | null> {
     try {
       const car = await this.prisma.car.findUnique({
         where: { id },
         include: {
-          position: true
+          driver: {
+            include: {
+              user: true
+            }
+          }
         }
       });
-
-      return car ? toCar(car as unknown as CarDTO) : null;
+      return car ? toCarDTO(car) : null;
     } catch (error) {
-      this.logger.error(error);
-      throw new Error('Cannot get car');
+      return this.handleError(error, 'Error finding car by id');
     }
   }
 
-  async findByDriverId(driverId: string): Promise<Car[]> {
+  async create(carData: Omit<CarInterface, 'id'>): Promise<CarDTO> {
     try {
-      const cars = await this.prisma.car.findMany({
-        where: { driverId },
+      const car = await this.prisma.car.create({
+        data: carData,
         include: {
-          position: true
+          driver: {
+            include: {
+              user: true
+            }
+          }
         }
       });
-
-      return cars.map(car => toCar(car as unknown as CarDTO));
+      return toCarDTO(car);
     } catch (error) {
-      this.logger.error(error);
-      throw new Error('Error retrieving cars');
+      return this.handleError(error, 'Error creating car');
     }
   }
 
-  async update(id: string, carData: Partial<Car>): Promise<Car> {
+  async update(id: string, carData: Partial<CarInterface>): Promise<CarDTO> {
     try {
       const car = await this.prisma.car.update({
         where: { id },
-        data: {
-          plate: carData.plate,
-          model: carData.model,
-          brand: carData.brand,
-          year: carData.year,
-          color: carData.color,
-          driverId: carData.driverId
-        },
+        data: carData,
         include: {
-          position: true
+          driver: {
+            include: {
+              user: true
+            }
+          }
         }
       });
-      return toCar(car as unknown as CarDTO);
+      return toCarDTO(car);
     } catch (error) {
-      this.logger.error(error);
-      throw new Error('Error updating car');
+      return this.handleError(error, 'Error updating car');
     }
   }
 
@@ -94,93 +75,74 @@ export class CarRepository implements ICarRepository {
         where: { id }
       });
     } catch (error) {
-      this.logger.error(error);
-      throw new Error('Error deleting car');
+      return this.handleError(error, 'Error deleting car');
     }
   }
 
-  async updateStatus(id: string, isActive: boolean): Promise<void> {
+  async getAll(page: number = 1, limit: number = 10): Promise<{ data: CarDTO[]; total: number }> {
     try {
-      await this.prisma.carPosition.update({
-        where: { carId: id },
-        data: { isActive }
-      });
+      const skip = (page - 1) * limit;
+      const [cars, total] = await Promise.all([
+        this.prisma.car.findMany({
+          skip,
+          take: limit,
+          include: {
+            driver: {
+              include: {
+                user: true
+              }
+            }
+          }
+        }),
+        this.prisma.car.count()
+      ]);
+
+      return {
+        data: cars.map(toCarDTO),
+        total
+      };
     } catch (error) {
-      this.logger.error(error);
-      throw new Error('Error updating car status');
+      return this.handleError(error, 'Error getting all cars');
     }
   }
 
-  async updateCarPosition(
-    carId: string,
-    data: {
-      latitude: number;
-      longitude: number;
-      isActive: boolean;
-      isFree: boolean;
-    }
-  ): Promise<CarPosition | null> {
+  async findByDriverId(driverId: string): Promise<CarDTO[]> {
     try {
-      const carPosition = await this.prisma.carPosition.upsert({
-        where: { carId },
-        update: data,
-        create: {
-          ...data,
-          carId
-        },
+      const cars = await this.prisma.car.findMany({
+        where: { driverId },
         include: {
-          car: true
+          driver: {
+            include: {
+              user: true
+            }
+          }
         }
       });
-      return carPosition as unknown as CarPosition;
+      return cars.map(toCarDTO);
     } catch (error) {
-      this.logger.error(error);
-      throw new Error('Error updating car position');
+      return this.handleError(error, 'Error finding cars by driver id');
     }
   }
 
-  async getCarPosition(carId: string): Promise<CarPosition | null> {
+  async findByPlate(plate: string): Promise<CarDTO | null> {
     try {
-      const carPosition = await this.prisma.carPosition.findUnique({
-        where: { carId },
+      const car = await this.prisma.car.findUnique({
+        where: { plate },
         include: {
-          car: true
+          driver: {
+            include: {
+              user: true
+            }
+          }
         }
       });
-      return carPosition as unknown as CarPosition;
+      return car ? toCarDTO(car) : null;
     } catch (error) {
-      this.logger.error(error);
-      throw new Error('Error getting car position');
+      return this.handleError(error, 'Error finding car by plate');
     }
   }
 
-  async getActiveCars(): Promise<CarPosition[]> {
-    try {
-      const carPositions = await this.prisma.carPosition.findMany({
-        where: { isActive: true },
-        include: {
-          car: true
-        }
-      });
-      return carPositions as unknown as CarPosition[];
-    } catch (error) {
-      this.logger.error(error);
-      throw new Error('Error getting active cars');
-    }
-  }
-
-  async getFreeCars(): Promise<CarPosition[]> {
-    try {
-      const carPositions = await this.prisma.carPosition.findMany({
-        where: { isFree: true },
-        include: {
-          car: true
-        }
-      });
-      return carPositions as unknown as CarPosition[];
-    } catch (error) {
-      this.logger.error(error);
-      throw new Error('Error getting free cars');
-    }
+  async save(data: CarDTO): Promise<CarDTO> {
+    return this.create(data);
   }
 } 

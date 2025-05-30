@@ -1,14 +1,27 @@
-import { User } from '@prisma/client';
+import { User } from '../User';
 import { UserDTO } from '../UserDTO';
 
-export const toUserDTO = (user: User): UserDTO => ({
-  uuid: user.uuid,
-  name: user.name,
-  email: user.email,
-  lastName: user.lastName,
-  user: user.user,
-  active: user.active,
-  createdAt: user.createdAt.toISOString(),
-  deletedAt: user.deletedAt?.toISOString() ?? null,
-  modifiedAt: user.modifiedAt?.toISOString() ?? null
-});
+export class UserMapper {
+  static toDTO(data: any): UserDTO {
+    return {
+      id: data.id,
+      name: data.name,
+      lastName: data.lastName,
+      email: data.email,
+      phone: data.phone,
+      user: data.user,
+      role: data.role,
+      createdAt: data.createdAt
+    };
+  }
+
+  static toDomain(dto: UserDTO): User {
+    return new User({
+      id: dto.id,
+      name: dto.name,
+      lastName: dto.lastName,
+      email: dto.email,
+      phone: dto.phone
+    });
+  }
+}

@@ -1,14 +1,20 @@
 import { TripStatus } from '@prisma/client';
 
 export interface TripInterface {
-  id?: string;
-  origin: string;
-  destination: string;
-  status: TripStatus;
-  fare: number;
+  id: string;
   driverId: string;
   passengerId: string;
-  createdAt?: Date;
-  completedAt?: Date | null;
-  cancelledAt?: Date | null;
+  startLocation: {
+    latitude: number;
+    longitude: number;
+  };
+  endLocation: {
+    latitude: number;
+    longitude: number;
+  };
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  startTime?: Date;
+  endTime?: Date;
+  fare?: number;
+  isActive: boolean;
 }

@@ -1,4 +1,5 @@
 export interface PassengerInterface {
-  id?: string;
+  id: string;
   userId: string;
+  isActive: boolean;
 } 

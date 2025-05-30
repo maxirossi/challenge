@@ -1,100 +1,225 @@
-import { PrismaClient } from '@prisma/client';
-
+import { PrismaClientInterface } from '@Modules/Shared/infrastructure/prisma/interfaces/PrismaClientInterface';
 import { TripInterface } from '@Modules/Trips/model/interfaces/TripInterface';
-import Logger from '@Shared/domain/Logger';
-import { InternalResponse } from '@Shared/dto/InternalResponse';
-import { GenericResponse } from '@Shared/dto/GenericResponse';
+import { Logger } from '@Modules/Shared/domain/interfaces/Logger';
+import { BaseRepository } from '@Modules/Shared/domain/interfaces/Repository';
 import { TripDTO } from '@Modules/Trips/model/TripDTO';
 import { toTripDTO } from '@Modules/Trips/model/Mappers/TripMapper';
+import { prisma } from '@Modules/Shared/infrastructure/prisma/client';
+import WinstonLogger from '@Modules/Shared/infrastructure/WinstoneLogger';
+import { DomainEventDispatcher } from '@Modules/Shared/DomainEventDispatcher';
+import { TripCreatedEvent } from '../../model/events/TripCreatedEvent';
+import { TripStatusChangedEvent } from '../../model/events/TripStatusChangedEvent';
 
-export class TripRepository {
+export class TripRepository extends BaseRepository<TripDTO, string> {
   constructor(
-    private readonly prisma: PrismaClient,
-    private readonly logger: Logger
-  ) {}
-
-  async create(tripData: TripInterface): Promise<InternalResponse> {
-    try {
-      const { id, ...createData } = tripData;
-      await this.prisma.trip.create({ data: createData });
-      return { success: true, message: 'Trip created successfully' };
-    } catch (error) {
-      this.logger.error(error);
-      return { success: false, message: 'Error creating trip' };
-    }
+    private readonly prisma: PrismaClientInterface = prisma,
+    logger: Logger = new WinstonLogger()
+  ) {
+    super(logger);
   }
 
-  async getAll(
-    page: number,
-    perPage: number
-  ): Promise<GenericResponse<TripDTO[]>> {
-    try {
-      const skip = (page - 1) * perPage;
-      const trips = await this.prisma.trip.findMany({
-        skip,
-        take: perPage
-      });
-
-      return { success: true, data: trips.map(toTripDTO) };
-    } catch (error) {
-      this.logger.error(error);
-      return { success: false, message: 'Error retrieving trips' };
-    }
-  }
-
-  async getById(id: string): Promise<GenericResponse<TripDTO>> {
+  async findById(id: string): Promise<TripDTO | null> {
     try {
       const trip = await this.prisma.trip.findUnique({
-        where: { id }
+        where: { id },
+        include: {
+          driver: {
+            include: {
+              user: true,
+              car: true
+            }
+          },
+          passenger: {
+            include: {
+              user: true
+            }
+          }
+        }
       });
-
-      return trip
-        ? { success: true, data: toTripDTO(trip) }
-        : { success: false, message: 'Trip not found' };
+      return trip ? toTripDTO(trip) : null;
     } catch (error) {
-      this.logger.error(error);
-      return { success: false, message: 'Cannot get trip' };
+      return this.handleError(error, 'Error finding trip by id');
     }
   }
 
-  async update(
-    id: string,
-    tripData: Partial<TripInterface>
-  ): Promise<InternalResponse> {
+  async save(tripData: Omit<TripInterface, 'id'>): Promise<TripDTO> {
     try {
-      const trip = await this.prisma.trip.findUnique({
-        where: { id }
+      const trip = await this.prisma.trip.create({
+        data: tripData,
+        include: {
+          driver: {
+            include: {
+              user: true,
+              car: true
+            }
+          },
+          passenger: {
+            include: {
+              user: true
+            }
+          }
+        }
       });
-
-      if (!trip) return { success: false, message: 'Trip not found' };
-
-      await this.prisma.trip.update({
-        where: { id },
-        data: tripData
-      });
-
-      return { success: true, message: 'Trip updated successfully' };
+      
+      const tripDTO = toTripDTO(trip);
+      
+      // Dispatch TripCreatedEvent
+      await DomainEventDispatcher.dispatch(new TripCreatedEvent(tripDTO));
+      
+      return tripDTO;
     } catch (error) {
-      this.logger.error(error);
-      return { success: false, message: 'Error updating trip' };
+      return this.handleError(error, 'Error saving trip');
     }
   }
 
-  async delete(id: string): Promise<InternalResponse> {
+  async update(id: string, tripData: Partial<TripInterface>): Promise<TripDTO> {
     try {
-      const trip = await this.prisma.trip.findUnique({ where: { id } });
+      const existingTrip = await this.findById(id);
+      if (!existingTrip) {
+        throw new Error('Trip not found');
+      }
 
-      if (!trip) return { success: false, message: 'Trip not found' };
-
-      await this.prisma.trip.update({
+      const trip = await this.prisma.trip.update({
         where: { id },
-        data: { status: 'CANCELLED', cancelledAt: new Date() }
+        data: tripData,
+        include: {
+          driver: {
+            include: {
+              user: true,
+              car: true
+            }
+          },
+          passenger: {
+            include: {
+              user: true
+            }
+          }
+        }
       });
-
-      return { success: true, message: 'Trip deleted' };
+      
+      const tripDTO = toTripDTO(trip);
+      
+      // Dispatch TripStatusChangedEvent if status changed
+      if (tripData.status && tripData.status !== existingTrip.status) {
+        await DomainEventDispatcher.dispatch(
+          new TripStatusChangedEvent(tripDTO, existingTrip.status, tripData.status)
+        );
+      }
+      
+      return tripDTO;
     } catch (error) {
-      this.logger.error(error);
-      return { success: false, message: 'Error deleting trip' };
+      return this.handleError(error, 'Error updating trip');
+    }
+  }
+
+  async delete(id: string): Promise<void> {
+    try {
+      await this.prisma.trip.delete({
+        where: { id }
+      });
+    } catch (error) {
+      return this.handleError(error, 'Error deleting trip');
+    }
+  }
+
+  async getAll(page: number = 1, limit: number = 10): Promise<{ data: TripDTO[]; total: number }> {
+    try {
+      const skip = (page - 1) * limit;
+      const [trips, total] = await Promise.all([
+        this.prisma.trip.findMany({
+          skip,
+          take: limit,
+          include: {
+            driver: {
+              include: {
+                user: true,
+                car: true
+              }
+            },
+            passenger: {
+              include: {
+                user: true
+              }
+            }
+          }
+        }),
+        this.prisma.trip.count()
+      ]);
+
+      return {
+        data: trips.map(toTripDTO),
+        total
+      };
+    } catch (error) {
+      return this.handleError(error, 'Error getting all trips');
+    }
+  }
+
+  async findByDriverId(driverId: string, page: number = 1, limit: number = 10): Promise<{ data: TripDTO[]; total: number }> {
+    try {
+      const skip = (page - 1) * limit;
+      const [trips, total] = await Promise.all([
+        this.prisma.trip.findMany({
+          where: { driverId },
+          skip,
+          take: limit,
+          include: {
+            driver: {
+              include: {
+                user: true,
+                car: true
+              }
+            },
+            passenger: {
+              include: {
+                user: true
+              }
+            }
+          }
+        }),
+        this.prisma.trip.count({ where: { driverId } })
+      ]);
+
+      return {
+        data: trips.map(toTripDTO),
+        total
+      };
+    } catch (error) {
+      return this.handleError(error, 'Error finding trips by driver id');
+    }
+  }
+
+  async findByPassengerId(passengerId: string, page: number = 1, limit: number = 10): Promise<{ data: TripDTO[]; total: number }> {
+    try {
+      const skip = (page - 1) * limit;
+      const [trips, total] = await Promise.all([
+        this.prisma.trip.findMany({
+          where: { passengerId },
+          skip,
+          take: limit,
+          include: {
+            driver: {
+              include: {
+                user: true,
+                car: true
+              }
+            },
+            passenger: {
+              include: {
+                user: true
+              }
+            }
+          }
+        }),
+        this.prisma.trip.count({ where: { passengerId } })
+      ]);
+
+      return {
+        data: trips.map(toTripDTO),
+        total
+      };
+    } catch (error) {
+      return this.handleError(error, 'Error finding trips by passenger id');
     }
   }
 }

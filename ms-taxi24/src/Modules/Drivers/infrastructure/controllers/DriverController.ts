@@ -14,8 +14,6 @@ import Logger from '@Shared/domain/Logger';
 import WinstonLogger from '@Shared/infrastructure/WinstoneLogger';
 import { GeneralConstants } from '@Shared/constants';
 import { ControllerError } from '@Shared/domain/exceptions/ControllerException';
-import { DriverRepository } from '../repositories/DriverRepository';
-import { PrismaClient } from '@prisma/client';
 
 export class DriverController {
   constructor(
@@ -23,7 +21,7 @@ export class DriverController {
     private readonly logger: Logger = new WinstonLogger()
   ) {}
 
-  private handleError(error: unknown, res: Response): void {
+  private handleError = (error: unknown, res: Response): void => {
     this.logger.error(error);
     const status =
       error instanceof ControllerError
@@ -66,6 +64,74 @@ export class DriverController {
     }
   }
 
+  async updateDriver(req: Request, res: Response): Promise<void> {
+    try {
+      const driverId = req.params.driverId;
+      const { name, lastName, email, phone, active } = req.body;
+
+      const response = await this.driverService.update(driverId, {
+        name: name ? new Name(name) : undefined,
+        lastName: lastName ? new LastName(lastName) : undefined,
+        email: email ? new Email(email) : undefined,
+        phone: phone ? new Phone(phone) : undefined,
+        active: active !== undefined ? new Active(active) : undefined
+      });
+
+      if (!response.success)
+        throw new ControllerError(
+          'Error updating driver',
+          HttpResponseCodes.BAD_REQUEST
+        );
+
+      res.status(HttpResponseCodes.OK).json(response);
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
+
+  async deleteDriver(req: Request, res: Response): Promise<void> {
+    try {
+      const driverId = req.params.driverId;
+      const response = await this.driverService.delete(driverId);
+
+      if (!response.success)
+        throw new ControllerError(
+          'Error deleting driver',
+          HttpResponseCodes.BAD_REQUEST
+        );
+
+      res.status(HttpResponseCodes.OK).json(response);
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
+
+  async assignCar(req: Request, res: Response): Promise<void> {
+    try {
+      const driverId = req.params.driverId;
+      const { carId } = req.body;
+
+      if (!carId) {
+        throw new ControllerError(
+          'Car ID is required',
+          HttpResponseCodes.BAD_REQUEST
+        );
+      }
+
+      const response = await this.driverService.assignCar(driverId, carId);
+
+      if (!response.success)
+        throw new ControllerError(
+          'Error assigning car to driver',
+          HttpResponseCodes.BAD_REQUEST
+        );
+
+      res.status(HttpResponseCodes.OK).json(response);
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
+
   async getAllDrivers(req: Request, res: Response): Promise<void> {
     try {
       const pageParam = req.query.page;
@@ -99,10 +165,7 @@ export class DriverController {
           HttpResponseCodes.BAD_REQUEST
         );
 
-      res.status(HttpResponseCodes.OK).send({
-        status: GeneralConstants.STATUS_OK,
-        drivers: response.data
-      });
+      res.status(HttpResponseCodes.OK).json(response);
     } catch (error) {
       this.handleError(error, res);
     }
@@ -113,11 +176,19 @@ export class DriverController {
       const uuidParam = req.params.driverId;
       const response = await this.driverService.getById(uuidParam);
 
-      if (!response.success)
+      if (!response.success) {
+        if (response.message?.includes('not found')) {
+          res.status(HttpResponseCodes.NOT_FOUND).json({
+            success: false,
+            message: 'Driver not found'
+          });
+          return;
+        }
         throw new ControllerError(
           'Error getting driver by uuid',
           HttpResponseCodes.BAD_REQUEST
         );
+      }
 
       res.status(HttpResponseCodes.OK).json(response);
     } catch (error) {

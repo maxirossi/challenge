@@ -1,17 +1,19 @@
-import { TripCreatedEvent } from '@Modules/Trips/model/events/TripCreatedEvent';
-import { kafkaProducer } from '@Shared/infrastructure/kafka/producer';
+import { TripCreatedEvent } from '../../model/events/TripCreatedEvent';
+import { Logger } from '@Modules/Shared/domain/interfaces/Logger';
 
-export const handleTripCreated = async (event: TripCreatedEvent) => {
-  await kafkaProducer.send({
-    topic: 'ms-taxi24-events',
-    messages: [
-      {
-        key: event.aggregateId,
-        value: JSON.stringify({
-          id: event.id,
-          createdAt: event.occurredOn
-        })
-      }
-    ]
-  });
+export const handleTripCreated = async (event: TripCreatedEvent): Promise<void> => {
+  try {
+    // Aquí implementaríamos la lógica para notificar al conductor
+    // Por ejemplo, enviar una notificación push, SMS, etc.
+    console.log(`Notifying driver ${event.trip.driverId} about new trip ${event.trip.id}`);
+    
+    // Implementación de ejemplo:
+    // await notificationService.sendToDriver(event.trip.driverId, {
+    //   title: 'New Trip Request',
+    //   body: `You have a new trip request from ${event.trip.startLocation} to ${event.trip.endLocation}`
+    // });
+  } catch (error) {
+    console.error('Error handling TripCreatedEvent:', error);
+    throw error;
+  }
 };

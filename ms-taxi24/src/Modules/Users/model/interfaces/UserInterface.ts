@@ -1,13 +1,17 @@
+export enum UserRole {
+  PASSENGER = 'PASSENGER',
+  DRIVER = 'DRIVER',
+  BOTH = 'BOTH'
+}
+
 export interface UserInterface {
-  readonly id?: number | null;
-  uuid: string;
+  id?: string;
   name: string;
-  email: string;
   lastName: string;
+  email: string;
   user: string;
   password: string;
-  active: boolean;
-  createdAt: Date | string;
-  deletedAt?: Date | string | null;
-  modifiedAt?: Date | string | null;
+  phone: string;
+  role?: UserRole;
+  createdAt?: Date;
 }

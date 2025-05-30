@@ -1,151 +1,129 @@
 import { PrismaClient } from '@prisma/client';
-import crypto from 'crypto';
-import { v4 as uuidv4 } from 'uuid';
+import { hash } from 'bcrypt';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  // Crear usuario administrador
-  const passwordPlain = 'ilovepuppies';
-  const passwordMd5 = crypto.createHash('md5').update(passwordPlain).digest('hex');
-
-  const newUser = await prisma.user.upsert({
-    where: { email: 'John@continental.com' },
+  // Create or update passenger user
+  const passengerUser = await prisma.user.upsert({
+    where: { email: 'john.doe@example.com' },
     update: {},
     create: {
-      uuid: uuidv4(),
       name: 'John',
-      lastName: 'Wick',
-      email: 'John@continental.com',
-      user: 'babayaga',
-      password: passwordMd5,
-      active: true,
-    },
+      lastName: 'Doe',
+      email: 'john.doe@example.com',
+      user: 'johndoe',
+      password: await hash('password123', 10),
+      phone: '1234567890',
+      role: 'PASSENGER'
+    }
   });
 
-  console.log('✅ Usuario creado:', newUser.email);
-
-  // Crear conductor
-  const newDriver = await prisma.driver.upsert({
-    where: { email: 'driver@example.com' },
-    update: {},
-    create: {
-      uuid: uuidv4(),
-      name: 'Carlos',
-      lastName: 'Pérez',
-      email: 'driver@example.com',
-      phone: '123456789',
-      active: true
-    },
-  });
-
-  console.log('🚗 Conductor creado:', newDriver.name);
-
-  // Crear autos para el conductor
-  const car1 = await prisma.car.create({
-    data: {
-      uuid: uuidv4(),
-      plate: 'ABC123',
-      model: 'Focus',
-      brand: 'Ford',
-      year: 2018,
-      color: 'Azul',
-      driverId: newDriver.id,
-    },
-  });
-
-  await prisma.carPosition.create({
-    data: {
-      uuid: uuidv4(),
-      carId: car1.id,
-      latitude: -34.6037,
-      longitude: -58.3816,
-      isActive: true,
-      isFree: true,
-    },
-  });
-
-  const car2 = await prisma.car.create({
-    data: {
-      uuid: uuidv4(),
-      plate: 'XYZ789',
-      model: 'Model 3',
-      brand: 'Tesla',
-      year: 2021,
-      color: 'Negro',
-      driverId: newDriver.id,
-    },
-  });
-
-  await prisma.carPosition.create({
-    data: {
-      uuid: uuidv4(),
-      carId: car2.id,
-      latitude: -34.6157,
-      longitude: -58.4333,
-      isActive: true,
-      isFree: false,
-    },
-  });
-
-  console.log('🚘 Autos y posiciones creados');
-
-  // Crear pasajero
+  // Create or update passenger
   const passenger = await prisma.passenger.upsert({
-    where: { email: 'ana@example.com' },
+    where: { userId: passengerUser.id },
+    update: {},
+    create: { userId: passengerUser.id }
+  });
+
+  // Create or update driver user
+  const driverUser = await prisma.user.upsert({
+    where: { email: 'jane.smith@example.com' },
     update: {},
     create: {
-      uuid: uuidv4(),
-      name: 'Ana',
-      lastName: 'Martínez',
-      email: 'ana@example.com',
-      phone: '987654321',
-    },
+      name: 'Jane',
+      lastName: 'Smith',
+      email: 'jane.smith@example.com',
+      user: 'janesmith',
+      password: await hash('password123', 10),
+      phone: '0987654321',
+      role: 'DRIVER'
+    }
   });
 
-  console.log('🧍 Pasajero creado:', passenger.name);
-
-  // Crear viajes
-  await prisma.trip.createMany({
-    data: [
-      {
-        uuid: uuidv4(),
-        origin: 'Centro',
-        destination: 'Aeropuerto',
-        status: 'COMPLETED',
-        fare: 1200.5,
-        driverId: newDriver.id,
-        passengerId: passenger.id,
-        completedAt: new Date(),
-      },
-      {
-        uuid: uuidv4(),
-        origin: 'Terminal',
-        destination: 'Hotel Plaza',
-        status: 'IN_PROGRESS',
-        fare: 800.0,
-        driverId: newDriver.id,
-        passengerId: passenger.id,
-      },
-      {
-        uuid: uuidv4(),
-        origin: 'Estación Sur',
-        destination: 'Teatro',
-        status: 'CANCELLED',
-        fare: 0.0,
-        driverId: newDriver.id,
-        passengerId: passenger.id,
-        cancelledAt: new Date(),
-      },
-    ],
+  // Create or update driver
+  const driver = await prisma.driver.upsert({
+    where: { userId: driverUser.id },
+    update: {},
+    create: { active: true, userId: driverUser.id }
   });
 
-  console.log('🛺 Viajes creados');
+  // Create or update car for driver
+  await prisma.car.upsert({
+    where: { plate: 'ABC123' },
+    update: {},
+    create: {
+      plate: 'ABC123',
+      brand: 'Toyota',
+      model: 'Corolla',
+      year: 2020,
+      color: 'Red',
+      driverId: driver.id
+    }
+  });
+
+  // Create or update another driver user
+  const driverUser2 = await prisma.user.upsert({
+    where: { email: 'mike.johnson@example.com' },
+    update: {},
+    create: {
+      name: 'Mike',
+      lastName: 'Johnson',
+      email: 'mike.johnson@example.com',
+      user: 'mikejohnson',
+      password: await hash('password123', 10),
+      phone: '5555555555',
+      role: 'DRIVER'
+    }
+  });
+
+  const driver2 = await prisma.driver.upsert({
+    where: { userId: driverUser2.id },
+    update: {},
+    create: { active: true, userId: driverUser2.id }
+  });
+
+  await prisma.car.upsert({
+    where: { plate: 'XYZ789' },
+    update: {},
+    create: {
+      plate: 'XYZ789',
+      brand: 'Honda',
+      model: 'Civic',
+      year: 2021,
+      color: 'Blue',
+      driverId: driver2.id
+    }
+  });
+
+  // Create a trip (no upsert, just create for demo)
+  const trip = await prisma.trip.create({
+    data: {
+      origin: 'Av. Reforma 123',
+      destination: 'Av. Insurgentes 456',
+      status: 'COMPLETED',
+      fare: 150.50,
+      driverId: driver.id,
+      passengerId: passenger.id,
+      completedAt: new Date()
+    }
+  });
+
+  // Create invoice for the trip
+  await prisma.invoice.create({
+    data: {
+      tripId: trip.id,
+      amount: 150.50,
+      issuedAt: new Date()
+    }
+  });
+
+  console.log('Seed data created successfully');
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Error en seed:', e);
+    console.error(e);
     process.exit(1);
   })
   .finally(async () => {

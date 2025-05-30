@@ -1,14 +1,14 @@
 import { PassengerRepository } from '@Modules/Passengers/infrastructure/repositories/PassengerRepository';
 import { GenericResponse } from '@Shared/dto/GenericResponse';
 import { PassengerDTO } from '@Modules/Passengers/model/PassagerDTO';
-import Logger from '@Shared/domain/Logger';
-import WinstonLogger from '@Shared/infrastructure/WinstoneLogger';
+import { Logger } from '@Modules/Shared/domain/interfaces/Logger';
+import WinstonLogger from '@Modules/Shared/infrastructure/WinstoneLogger';
 import { CaseUseException } from '@Shared/domain/exceptions/CaseUseException';
 import { PassengerInterface } from '@Modules/Passengers/model/interfaces/PassengerInterface';
 
 export class PassengerService {
   constructor(
-    private readonly passengerRepository: PassengerRepository = new PassengerRepository(),
+    private readonly passengerRepository: PassengerRepository,
     private readonly logger: Logger = new WinstonLogger()
   ) {}
 

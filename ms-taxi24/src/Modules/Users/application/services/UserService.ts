@@ -1,137 +1,128 @@
-import { Name } from '@Shared/domain/value-object/User/Name';
-import { LastName } from '@Shared/domain/value-object/User/LastName';
-import { Email } from '@Shared/domain/value-object/Email';
-import { UserName } from '@Shared/domain/value-object/User/UserName';
-import { Active } from '@Shared/domain/value-object/User/Active';
-import { CreatedAt } from '@Shared/domain/value-object/CreatedAt';
-import { Page } from '@Shared/domain/value-object/Page';
-
 import { InternalResponse } from '@Shared/dto/InternalResponse';
 import { GenericResponse } from '@Shared/dto/GenericResponse';
 
-
-import WinstonLogger from '@Shared/infrastructure/WinstoneLogger';
 import Logger from '@Shared/domain/Logger';
-
-import { CaseUseException } from '@Shared/domain/exceptions/CaseUseException';
-
-import { DomainEventDispatcher } from '@Shared/DomainEventDispatcher';
-
-import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcrypt';
-import { UserCreatedEvent } from '@Modules/Users/model/events/UserCreatedEvent';
-import { Constants } from '@Modules/Users/Shared/constants';
 import { UserRepository } from '@Modules/Users/infrastructure/repositories/UserRepository';
 import { UserDTO } from '@Modules/Users/model/UserDTO';
 import { UserInterface } from '@Modules/Users/model/interfaces/UserInterface';
+import { User } from '@Modules/Users/model/User';
+import { Page } from '@Shared/domain/value-object/Page';
 
 export class UserService {
   constructor(
-    private readonly userRepository: UserRepository = new UserRepository(
-      new PrismaClient(),
-      new WinstonLogger()
-    ),
-    private readonly logger: Logger = new WinstonLogger()
+    private readonly userRepository: UserRepository,
+    private readonly logger: Logger
   ) {}
 
-  async create(
-    uuid: string,
-    name: Name,
-    lastName: LastName,
-    email: Email,
-    userName: UserName,
-    password: string,
-    active: Active,
-    createdAt: CreatedAt
-  ): Promise<InternalResponse> {
-    try {
-      const user: UserInterface = {
-        uuid,
-        name: name.value,
-        lastName: lastName.value,
-        email: email.value,
-        user: userName.value,
-        password,
-        active: active.value,
-        createdAt: createdAt.value
+  async findById(id: string): Promise<GenericResponse<UserDTO>> {
+    const user = await this.userRepository.findById(id);
+    if (!user) {
+      return {
+        success: false,
+        message: 'User not found'
       };
+    }
+    return {
+      success: true,
+      data: user
+    };
+  }
 
-      const event = new UserCreatedEvent(user.uuid, user.email);
-      DomainEventDispatcher.dispatch(event);
+  async findByEmail(email: string): Promise<GenericResponse<UserDTO>> {
+    const user = await this.userRepository.findByEmail(email);
+    if (!user) {
+      return {
+        success: false,
+        message: 'User not found'
+      };
+    }
+    return {
+      success: true,
+      data: user
+    };
+  }
 
-      return await this.userRepository.create(user);
-
+  async create(userData: UserInterface): Promise<InternalResponse> {
+    try {
+      const user = new User(userData);
+      await user.setPassword(userData.password);
+      await this.userRepository.save(userData);
+      return { success: true, message: 'User created successfully' };
     } catch (error) {
       this.logger.error(error);
-      throw new CaseUseException('Error creating user');
+      return { success: false, message: 'Error creating user' };
     }
   }
 
-  async getAll(page: Page): Promise<GenericResponse<UserDTO[]>> {
-    const perPage = Constants.RECORDS_PER_PAGE;
+  async update(id: string, userData: Partial<UserInterface>): Promise<InternalResponse> {
     try {
-      return await this.userRepository.getAll(page.getValue(), perPage);
-    } catch (error) {
-      this.logger.error(error);
-      return { success: false, message: 'Error fetching users' };
-    }
-  }
-
-  async getById(uuid: string): Promise<GenericResponse<UserDTO>> {
-    try {
-      return await this.userRepository.getUserById(uuid);
-    } catch (error) {
-      this.logger.error(error);
-      return { success: false, message: 'Error fetching user by ID' };
-    }
-  }
-
-  async update(uuid: string, userData: Partial<UserInterface>): Promise<InternalResponse> {
-    try {
-      const userResult = await this.getById(uuid);
-      if (!userResult.success || !userResult.data) {
+      const user = await this.userRepository.findById(id);
+      if (!user) {
         return { success: false, message: 'User not found' };
       }
-
-      const updatedUserData: UserInterface = {
-        ...userResult.data,
-        ...userData,
-        password: userData.password ?? ''
-      };
-
-
-      return await this.userRepository.update(uuid, updatedUserData);
+      await this.userRepository.update(id, userData);
+      return { success: true, message: 'User updated successfully' };
     } catch (error) {
       this.logger.error(error);
       return { success: false, message: 'Error updating user' };
     }
   }
 
-  async delete(uuid: string): Promise<InternalResponse> {
+  async delete(id: string): Promise<InternalResponse> {
     try {
-      return await this.userRepository.delete(uuid);
+      await this.userRepository.delete(id);
+      return { success: true, message: 'User deleted successfully' };
     } catch (error) {
       this.logger.error(error);
       return { success: false, message: 'Error deleting user' };
     }
   }
 
-  async authenticate(email: Email, password: string): Promise<InternalResponse> {
+  async getAll(page: Page, limit: number = 10): Promise<GenericResponse<UserDTO[]>> {
     try {
-      const userResult = await this.userRepository.getByEmail(email.value);
-      if (!userResult.success || !userResult.data) {
-        return { success: false, message: 'User not found' };
-      }
-
-      const validPassword = await bcrypt.compare(password, userResult.data.password);
-      if (!validPassword) {
-        return { success: false, message: 'Invalid password' };
-      }
-
-      return { success: true, message: 'Authentication successful' };
+      const result = await this.userRepository.getAll(page.getValue(), limit);
+      return {
+        success: true,
+        data: result.data
+      };
     } catch (error) {
       this.logger.error(error);
-      return { success: false, message: 'Authentication failed' };
+      return {
+        success: false,
+        message: 'Error getting users'
+      };
+    }
+  }
+
+  async authenticate(email: string, password: string): Promise<GenericResponse<UserDTO>> {
+    try {
+      const user = await this.userRepository.findByEmail(email);
+      if (!user) {
+        return {
+          success: false,
+          message: 'Invalid credentials'
+        };
+      }
+
+      const userEntity = new User(user);
+      const isValid = await userEntity.comparePassword(password);
+      if (!isValid) {
+        return {
+          success: false,
+          message: 'Invalid credentials'
+        };
+      }
+
+      return {
+        success: true,
+        data: user
+      };
+    } catch (error) {
+      this.logger.error(error);
+      return {
+        success: false,
+        message: 'Error authenticating user'
+      };
     }
   }
 } 

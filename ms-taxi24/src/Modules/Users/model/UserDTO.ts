@@ -1,12 +1,12 @@
+import { UserInterface } from './interfaces/UserInterface';
 
 export interface UserDTO {
-    uuid: string;
-    name: string;
-    email: string;
-    lastName: string;
-    user: string;
-    active: boolean;
-    createdAt: string;
-    deletedAt?: string | null;
-    modifiedAt?: string | null;
+  id: string;
+  name: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  user?: string;
+  role?: string;
+  createdAt?: Date;
 }

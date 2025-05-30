@@ -1,50 +1,107 @@
-import { PrismaClient } from '@prisma/client';
-import Logger from '@Shared/domain/Logger';
-import { GenericResponse } from '@Shared/dto/GenericResponse';
-import { PassengerDTO } from '@Modules/Passengers/model/PassagerDTO';
-import WinstonLogger from '@Shared/infrastructure/WinstoneLogger';
-import { toPassengerDTO } from '@Modules/Passengers/model/Mappers/PassengerMapper';
+import { PrismaClientInterface } from '@Modules/Shared/infrastructure/prisma/interfaces/PrismaClientInterface';
 import { PassengerInterface } from '@Modules/Passengers/model/interfaces/PassengerInterface';
+import { Logger } from '@Modules/Shared/domain/interfaces/Logger';
+import { BaseRepository } from '@Modules/Shared/domain/interfaces/Repository';
+import { PassengerDTO } from '@Modules/Passengers/model/PassengerDTO';
+import { toPassengerDTO } from '@Modules/Passengers/model/Mappers/PassengerMapper';
+import { prisma } from '@Modules/Shared/infrastructure/prisma/client';
+import WinstonLogger from '@Modules/Shared/infrastructure/WinstoneLogger';
 
-export class PassengerRepository {
+export class PassengerRepository extends BaseRepository<PassengerDTO, string> {
   constructor(
-    private readonly prisma: PrismaClient = new PrismaClient(),
-    private readonly logger: Logger = new WinstonLogger()
-  ) {}
-
-  async create(passengerData: PassengerInterface): Promise<GenericResponse<PassengerDTO>> {
-    try {
-      const { id, ...createData } = passengerData;
-      const passenger = await this.prisma.passenger.create({ data: createData });
-      return { success: true, data: toPassengerDTO(passenger) };
-    } catch (error) {
-      this.logger.error(error);
-      return { success: false, message: 'Error creating passenger' };
-    }
+    private readonly prisma: PrismaClientInterface = prisma,
+    logger: Logger = new WinstonLogger()
+  ) {
+    super(logger);
   }
 
-  async getAll(): Promise<GenericResponse<PassengerDTO[]>> {
-    try {
-      const passengers = await this.prisma.passenger.findMany();
-      return { success: true, data: passengers.map(toPassengerDTO) };
-    } catch (error) {
-      this.logger.error(error);
-      return { success: false, message: 'Error retrieving passengers' };
-    }
-  }
-
-  async getById(id: string): Promise<GenericResponse<PassengerDTO>> {
+  async findById(id: string): Promise<PassengerDTO | null> {
     try {
       const passenger = await this.prisma.passenger.findUnique({
+        where: { id },
+        include: {
+          user: true
+        }
+      });
+      return passenger ? toPassengerDTO(passenger) : null;
+    } catch (error) {
+      return this.handleError(error, 'Error finding passenger by id');
+    }
+  }
+
+  async save(passengerData: Omit<PassengerInterface, 'id'>): Promise<PassengerDTO> {
+    try {
+      const passenger = await this.prisma.passenger.create({
+        data: passengerData,
+        include: {
+          user: true
+        }
+      });
+      return toPassengerDTO(passenger);
+    } catch (error) {
+      return this.handleError(error, 'Error saving passenger');
+    }
+  }
+
+  async update(id: string, passengerData: Partial<PassengerInterface>): Promise<PassengerDTO> {
+    try {
+      const passenger = await this.prisma.passenger.update({
+        where: { id },
+        data: passengerData,
+        include: {
+          user: true
+        }
+      });
+      return toPassengerDTO(passenger);
+    } catch (error) {
+      return this.handleError(error, 'Error updating passenger');
+    }
+  }
+
+  async delete(id: string): Promise<void> {
+    try {
+      await this.prisma.passenger.delete({
         where: { id }
       });
-
-      return passenger
-        ? { success: true, data: toPassengerDTO(passenger) }
-        : { success: false, message: 'Passenger not found' };
     } catch (error) {
-      this.logger.error(error);
-      return { success: false, message: 'Error retrieving passenger' };
+      return this.handleError(error, 'Error deleting passenger');
+    }
+  }
+
+  async getAll(page: number = 1, limit: number = 10): Promise<{ data: PassengerDTO[]; total: number }> {
+    try {
+      const skip = (page - 1) * limit;
+      const [passengers, total] = await Promise.all([
+        this.prisma.passenger.findMany({
+          skip,
+          take: limit,
+          include: {
+            user: true
+          }
+        }),
+        this.prisma.passenger.count()
+      ]);
+
+      return {
+        data: passengers.map(toPassengerDTO),
+        total
+      };
+    } catch (error) {
+      return this.handleError(error, 'Error getting all passengers');
+    }
+  }
+
+  async findByUserId(userId: string): Promise<PassengerDTO | null> {
+    try {
+      const passenger = await this.prisma.passenger.findUnique({
+        where: { userId },
+        include: {
+          user: true
+        }
+      });
+      return passenger ? toPassengerDTO(passenger) : null;
+    } catch (error) {
+      return this.handleError(error, 'Error finding passenger by user id');
     }
   }
 }

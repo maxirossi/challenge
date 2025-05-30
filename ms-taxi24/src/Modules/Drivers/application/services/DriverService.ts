@@ -3,7 +3,6 @@ import { LastName } from '@Shared/domain/value-object/Driver/LastName';
 import { Email } from '@Shared/domain/value-object/Email';
 import { Phone } from '@Shared/domain/value-object/Driver/Phone';
 import { Active } from '@Shared/domain/value-object/Driver/Active';
-import { CreatedAt } from '@Shared/domain/value-object/CreatedAt';
 import { Page } from '@Shared/domain/value-object/Page';
 
 import { InternalResponse } from '@Shared/dto/InternalResponse';
@@ -34,41 +33,79 @@ export class DriversService {
   ) {}
 
   async create(
-    uuid: string,
-    name: Name,
-    lastName: LastName,
+    id: string,
     email: Email,
-    phone: Phone,
     active: Active,
-    createdAt: CreatedAt,
-    userId: number
+    userId: string
   ): Promise<InternalResponse> {
     try {
       const driver: DriverInterface = {
-        uuid,
-        name: name.value,
-        lastName: lastName.value,
-        email: email.value,
-        phone: phone.value,
-        active: active.value,
-        createdAt: createdAt.value,
-        userId
+        id,
+        userId,
+        licenseNumber: 'TEMP-LICENSE', // This should be handled properly
+        active: active.value
       };
 
-      const event = new DriverCreatedEvent(driver.uuid, driver.email);
+      const event = new DriverCreatedEvent(driver.id, email.value);
       DomainEventDispatcher.dispatch(event);
 
-      return await this.driverRepository.create(driver);
+      const result = await this.driverRepository.save(driver);
+      return { success: true, data: result };
     } catch (error) {
       this.logger.error(error);
       throw new CaseUseException('Error creating driver');
     }
   }
 
+  async update(
+    driverId: string,
+    data: {
+      name?: Name;
+      lastName?: LastName;
+      email?: Email;
+      phone?: Phone;
+      active?: Active;
+    }
+  ): Promise<GenericResponse<DriverDTO>> {
+    try {
+      const result = await this.driverRepository.update(driverId, {
+        active: data.active?.value
+      });
+      return { success: true, data: result };
+    } catch (error) {
+      this.logger.error(error);
+      return { success: false, message: 'Error updating driver' };
+    }
+  }
+
+  async delete(driverId: string): Promise<GenericResponse<void>> {
+    try {
+      await this.driverRepository.delete(driverId);
+      return { success: true };
+    } catch (error) {
+      this.logger.error(error);
+      return { success: false, message: 'Error deleting driver' };
+    }
+  }
+
+  async assignCar(driverId: string, carId: string): Promise<GenericResponse<DriverDTO>> {
+    try {
+      const result = await this.driverRepository.assignCar(driverId, carId);
+      return { success: true, data: result };
+    } catch (error) {
+      this.logger.error(error);
+      return { success: false, message: 'Error assigning car to driver' };
+    }
+  }
+
   async getAll(page: Page): Promise<GenericResponse<DriverDTO[]>> {
     const perPage = Constants.RECORDS_PER_PAGE;
     try {
-      return await this.driverRepository.getAll(page.getValue(), perPage);
+      const result = await this.driverRepository.getAll(page.getValue(), perPage);
+      return {
+        success: true,
+        data: result.data
+      };
     } catch (error) {
       this.logger.error(error);
       return { success: false, message: 'Error fetching drivers' };
@@ -78,16 +115,24 @@ export class DriversService {
   async getAllActive(page: Page): Promise<GenericResponse<DriverDTO[]>> {
     const perPage = Constants.RECORDS_PER_PAGE;
     try {
-      return await this.driverRepository.getAllActive(page.getValue(), perPage);
+      const result = await this.driverRepository.getAllActive(page.getValue(), perPage);
+      return {
+        success: true,
+        data: result.data
+      };
     } catch (error) {
       this.logger.error(error);
       return { success: false, message: 'Error fetching drivers' };
     }
   }
 
-  async getById(uuid: string): Promise<GenericResponse<DriverDTO>> {
+  async getById(id: string): Promise<GenericResponse<DriverDTO>> {
     try {
-      return await this.driverRepository.getDriverById(uuid);
+      const result = await this.driverRepository.findById(id);
+      if (!result) {
+        return { success: false, message: 'Driver not found' };
+      }
+      return { success: true, data: result };
     } catch (error) {
       this.logger.error(error);
       return { success: false, message: 'Error fetching driver by ID' };

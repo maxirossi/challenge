@@ -2,7 +2,7 @@ import { Kafka } from 'kafkajs';
 
 const kafka = new Kafka({
   clientId: 'taxi24-logger',
-  brokers: [process.env.KAFKA_BROKER || 'localhost:9092'],
+  brokers: [process.env.KAFKA_BROKERS || 'kafka:29092'],
 });
 
 const consumer = kafka.consumer({ groupId: 'event-logger-group' });
