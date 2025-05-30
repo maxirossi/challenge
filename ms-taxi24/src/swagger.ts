@@ -1,23 +1,44 @@
-import swaggerAutogen from 'swagger-autogen';
+import swaggerJsdoc from 'swagger-jsdoc';
+import packageJson from '../package.json';
 
-const doc = {
-  info: {
-    version: 'v0.0.1',
-    title: 'Mate',
-    description: 'A boilerplate for TS DDD Clean Code Project'
+const options: swaggerJsdoc.Options = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'Taxi24 API',
+      version: packageJson.version,
+      description: 'API para el sistema de Taxi24',
+    },
+    servers: [
+      {
+        url: 'http://localhost:3000',
+        description: 'Servidor de desarrollo',
+      },
+    ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT'
+        }
+      }
+    },
+    security: [
+      {
+        bearerAuth: []
+      }
+    ]
   },
-  servers: [
-    {
-      url: 'http://localhost:3000',
-      description: ''
-    }
+  apis: [
+    './src/Modules/*/infrastructure/controllers/*.ts',
+    './src/Modules/*/infrastructure/swagger/*.ts',
   ],
-  components: {
-    securitySchemes: {}
-  }
 };
 
-const outputFile = './swagger_output.json';
-const endpointsFiles = ['./src/Routes/routes.ts'];
+export const swaggerSpec = swaggerJsdoc(options);
 
-swaggerAutogen({ openapi: '3.0.0' })(outputFile, endpointsFiles, doc);
+export const swaggerUiOptions = {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'Taxi24 API Documentation',
+};

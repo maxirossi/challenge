@@ -1,32 +1,16 @@
-import { existsSync } from 'fs';
-import { execSync } from 'child_process';
-import path from 'path';
-
-const clientPath = path.join(__dirname, '..', 'node_modules', '.prisma', 'client');
-if (!existsSync(clientPath)) {
-  console.warn('⚠ Prisma client not found. Running prisma generate...');
-  try {
-    execSync('npx prisma generate', { stdio: 'inherit' });
-    console.info('✅ Prisma client generated successfully.');
-  } catch (error) {
-    console.error('❌ Failed to generate Prisma client:', error);
-    process.exit(1);
-  }
-}
-
-import bodyParser from 'body-parser';
-import errorHandler from 'errorhandler';
 import express, { Request, Response } from 'express';
-import Router from 'express-promise-router';
 import * as http from 'http';
 import httpStatus from 'http-status';
-import Logger from './Modules/Shared/domain/Logger';
-import WinstonLogger from './Modules/Shared/infrastructure/WinstoneLogger';
+import bodyParser from 'body-parser';
 import cors from 'cors';
-import routes from './Routes/routes';
 import swaggerUi from 'swagger-ui-express';
 import { Middleware } from '@Shared/infrastructure/middleware/middleware';
-const swaggerOutput = require('./swagger_output.json');
+import routes from './Routes/routes';
+import { swaggerSpec, swaggerUiOptions } from './swagger';
+import WinstonLogger from '@Shared/infrastructure/WinstoneLogger';
+import Logger from '@Shared/domain/Logger';
+
+const logger: Logger = new WinstonLogger();
 
 export class Server {
   private express: express.Express;
@@ -38,20 +22,34 @@ export class Server {
     this.port = port;
     this.logger = new WinstonLogger();
     this.express = express();
+    this.setupMiddleware();
+    this.setupRoutes();
+  }
 
-    this.express.use(cors());
+  private setupMiddleware(): void {
+    this.express.use(cors({
+      origin: '*',
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+      credentials: true
+    }));
     this.express.use(bodyParser.json());
     this.express.use(bodyParser.urlencoded({ extended: true }));
     this.express.use(Middleware);
+  }
 
-    const router = Router();
-    this.express.use(routes);
-    this.express.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerOutput));
+  private setupRoutes(): void {
+    // Documentación Swagger
+    this.express.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, swaggerUiOptions));
 
-    router.use((err: Error, req: Request, res: Response) => {
+    // Manejador de errores global
+    this.express.use((err: Error, _req: Request, res: Response, _next: Function) => {
       this.logger.error(err);
       res.status(httpStatus.INTERNAL_SERVER_ERROR).send(err.message);
     });
+
+    // Rutas de la API
+    this.express.use(routes);
   }
 
   async listen(): Promise<void> {
@@ -59,6 +57,7 @@ export class Server {
       this.httpServer = this.express.listen(this.port, () => {
         this.logger.info(`  Server is running at http://localhost:${this.port} in ${this.express.get('env')} mode`);
         this.logger.info('  Press CTRL-C to stop\n');
+        this.logger.info(`  Swagger documentation available at http://localhost:${this.port}/api-docs`);
         resolve();
       });
     });
