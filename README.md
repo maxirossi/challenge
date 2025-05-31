@@ -59,13 +59,12 @@ REDIS_PORT=6379
 
 ### 3. Dar Permisos de Ejecución
 ```bash
-sudo chmod +x build.sh
 sudo chmod +x init.sh
 ```
 
 ### 4. Construir el Proyecto
 ```bash
-./build.sh
+docker-compose up
 ```
 Este comando:
 - Construye las imágenes de Docker
